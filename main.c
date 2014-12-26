@@ -4,147 +4,121 @@
 #include <string.h>
 #include <unistd.h>
 
+
+#define BIT_TEST(x, y) (((x) & (y)) == (y))
+
 struct string {
     char   *c_string;
-    size_t length;
-    size_t size;    
+    size_t u_length;
+    size_t i_size;    
 };
 
-#define bit_Test(x, y) (((x) & (y)) == (y))
-#define max(x, y) (((x) > (y)) ? (x) : (y))
-
-size_t make_length(const char c_string[], const size_t size)
+uint8_t i_from_u_char(const char c_string)
 {
-    size_t length = 0;
+    return (BIT_TEST(c_string, 0xfc)) ? 6
+	 : (BIT_TEST(c_string, 0xf8)) ? 5
+	 : (BIT_TEST(c_string, 0xf0)) ? 4
+	 : (BIT_TEST(c_string, 0xe0)) ? 3
+	 : (BIT_TEST(c_string, 0xc0)) ? 2
+	 :                              1;
+}
+
+size_t u_length_from_c_string(const char *c_string, const size_t size)
+{
+    size_t u_length = 0;
     size_t i = 0;
     while(i < size)
     {
-	if      (bit_Test(c_string[i], 0xfc)) i += 6;
-	else if (bit_Test(c_string[i], 0xf8)) i += 5;
-	else if (bit_Test(c_string[i], 0xf0)) i += 4;
-	else if (bit_Test(c_string[i], 0xe0)) i += 3;
-	else if (bit_Test(c_string[i], 0xc0)) i += 2;
-	else                                  ++i;
-	++length;
+	i += i_from_u_char(c_string[i]);
+	++u_length;
     }
-    return length;
+    return u_length;
 }
 
-size_t make_index(const char c_string[], size_t length)
+size_t i_from_u_index(const char *c_string, size_t u_index)
 {
-    if (!length) return 0;
+    if (!u_index) return 0;
     int i = 0;
-    do {
-	if      (bit_Test(c_string[i], 0xfc)) i += 6;
-	else if (bit_Test(c_string[i], 0xf8)) i += 5;
-	else if (bit_Test(c_string[i], 0xf0)) i += 4;
-	else if (bit_Test(c_string[i], 0xe0)) i += 3;
-	else if (bit_Test(c_string[i], 0xc0)) i += 2;
-	else                                  ++i;
-    } while(--length);
+    do i += i_from_u_char(c_string[i]); while(--u_index);
     return i;
 }
 
-struct string *make_string_2(char *c_string, const size_t size, const size_t length)
+struct string *make_string_raw(char *c_string, const size_t i_size, const size_t u_length)
 {
     struct string *str = malloc(sizeof(struct string));
 
     str->c_string = c_string;
-    str->size	  = size;
-    str->length   = length;
+    str->i_size	  = i_size;
+    str->u_length = u_length;
+
     return str;
 }
 
-struct string *make_string(const char c_string[], const size_t size)
-{ 
-    char *c_string_2 = malloc(size - 1);
-    memcpy(c_string_2, c_string, size - 1);
-
-    return make_string_2(c_string_2, size - 1, make_length(c_string, size - 1));
+struct string *mystltoe_make_string(const char c_string[], const size_t size)
+{
+    char *c_string_copy = malloc(size);
+    memcpy(c_string_copy, c_string, size);
+	   
+    return make_string_raw(c_string_copy, size, u_length_from_c_string(c_string_copy, size));
 }
 
-void destroy_string(struct string *str)
+void mystltoe_destroy_string(struct string *str)
 {
     free(str->c_string);
     free(str);
 }
 
-char *split_2(char *src[], const size_t size, const size_t i)
+char *split_raw(struct string *src, const size_t i)
 {
-    char *dest = malloc(size - i);
-    memcpy(dest, *src + i, size - i);
+    char *dest = malloc(src->i_size - i);
+    memcpy(dest, src->c_string + i, src->i_size - i);
 
-    *src = realloc(*src, i);
+    src->c_string = realloc(src->c_string, i);
     return dest;
 }
 
-struct string *split(struct string *src, const size_t u)
+struct string *mystltoe_split(struct string *src, const size_t u)
 {
-    int i = make_index(src->c_string, u);
+    int i = i_from_u_index(src->c_string, u);
 
-    struct string *str	= make_string_2(split_2(&(src->c_string), src->size, i), src->size - i, src->length - u);
+    struct string *dest = make_string_raw(split_raw(src, i), src->i_size - i, src->u_length - u);
 
-    src->size	= i;
-    src->length	= u;
+    src->i_size = i;
+    src->u_length = u;
 
-    return str;
+    return dest;
 }
 
-
-void append_2(char **dest, const char *src, const size_t d_size, const size_t s_size)
+void append_raw(struct string *dest, const char *src, const size_t i_size)
 {
-    *dest = realloc(*dest, d_size + s_size);
-    memcpy(*dest + d_size, src, s_size);
+    dest->c_string = realloc(dest->c_string, dest->i_size + i_size);
+    memcpy(dest->c_string + dest->i_size, src, i_size);
 }
 
-void append(struct string *dest, const struct string *src)
+void mystltoe_append(struct string *dest, const struct string *src)
 {
-    append_2(&(dest->c_string), src->c_string, dest->size, src->size);
-    dest->size	   += src->size;
-    dest->length   += src->length;
+    append_raw(dest, src->c_string, src->i_size);
+
+    dest->i_size   += src->i_size;
+    dest->u_length += src->u_length;
 }
 
-void insert(struct string *dest, const struct string *src, const size_t u)
+void mystltoe_insert(struct string *dest, const struct string *src, const size_t u)
 {
-    int i = make_index(dest->c_string, u);
-    char *half = split_2(&(dest->c_string), dest->size, i);
+    int i = i_from_u_index(dest->c_string, u);
+    char *c_string = split_raw(dest, i);
 
-    append_2(&(dest->c_string), src->c_string, i, src->size);
-    append_2(&(dest->c_string), half, i + src->size, dest->size - i);
+    append_raw(dest, src->c_string, src->i_size);
+    append_raw(dest, c_string, dest->i_size - i);
 
-    dest->length += dest->length;
-    dest->size	 += src->size; 
-
-    free(half);
+    dest->u_length += src->u_length;
+    dest->i_size   += src->i_size;
 }
 
-int persistent_read(int fd, char *buffer, size_t length)
+void mystltoe_append_c_string(struct string *dest, const char *src, const size_t i_size)
 {
-    int n = 0;
-    int _;
-    while ((_ = read(fd, buffer, length)))
-	n += _;
-    return n;
+    append_raw(dest, src, i_size);
+
+    dest->i_size += i_size;
+    dest->u_length += u_length_from_c_string(src, i_size);
 }
-
-struct string *make_string_from_read(int fd, size_t n)
-{
-    char *c_string = malloc(n);
-    n = persistent_read(fd, c_string, n);
-    c_string = realloc(c_string, n);
-
-    return make_string_2(c_string, n, make_length(c_string, n));
-}
-
-int persistent_write(int fd, char *buffer, size_t length)
-{
-    int _;
-    size_t __ = length;
-	while ((_ = write(fd, buffer, length)) && (length > 0)) length -= _;
-    return length - __;
-}
-
-int write_from_string(int fd, struct string *src)
-{
-    return persistent_write(fd, src->c_string, src->size) ;
-}   
