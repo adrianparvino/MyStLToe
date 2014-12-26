@@ -1,4 +1,4 @@
 MyStLToE
 ========
 
-My String Library Towards Excelence
+My String Library Towards Excellence
