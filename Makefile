@@ -1,2 +1,4 @@
-main:
-	gcc -g -Wall -c main.c -o string.o
+core:
+	gcc -g -Wall -c core.c -o core.o
+lib:
+	ar rcs mystltoe.a core.o
