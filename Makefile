@@ -1,4 +1,4 @@
 core:
 	gcc -g -Wall -c core.c -o core.o
-lib:
-	ar rcs mystltoe.a core.o
+lib: core.o file.o
+	ar rcs libmystltoe.a core.o

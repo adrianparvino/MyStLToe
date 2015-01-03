@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
+// #include "core.h"
 
 #define BIT_TEST(x, y) (((x) & (y)) == (y))
 

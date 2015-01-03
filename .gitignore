@@ -1,0 +1,6 @@
+*.o*
+*test*
+*2*
+*.a*
+*run_test*
+*swp
